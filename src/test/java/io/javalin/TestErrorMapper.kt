@@ -46,4 +46,28 @@ class TestErrorMapper {
         assertThat(http.getBody("/exception"), `is`("Exception handled!"))
     }
 
+    @Test
+    fun `exception-mapper-does-not-trump-error-handler`() = TestUtil.test { app, http->
+        app.exception(Exception::class.java) { _, ctx -> ctx.status(500).result("boom") }
+            .error(404) { ctx -> ctx.result("custom-404-page") }
+        val response = http.get("/doesntexist")
+        assertThat(response.status, `is`(404))
+        assertThat(response.body, `is`("custom-404-page"))
+    }
+
+    @Test
+    fun `exception-mapper-doesnt-override-404-from-missing-route`() = TestUtil.test { app, http->
+        app.exception(Exception::class.java) { _, ctx -> ctx.status(500).result("boom") }
+        val response = http.get("/doesntexist")
+        assertThat(response.status, `is`(404))
+    }
+
+    @Test
+    fun `exception-mapper-doesnt-override-explicitly-set-status-codes`() = TestUtil.test { app, http->
+        app.get("/") { ctx -> ctx.status(404) }
+            .exception(Exception::class.java) { _, ctx -> ctx.status(500).result("boom") }
+        val response = http.get("/")
+        assertThat(response.status, `is`(404))
+    }
+
 }
